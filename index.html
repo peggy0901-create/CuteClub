@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CuteClub 運動排行榜</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主要導覽">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <img src="assets/cuteclub-logo.jpg" alt="" />
+          </div>
+          <div>
+            <strong>CuteClub</strong>
+            <span>Unleash Your Cute Power</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="頁面區塊">
+          <a href="#checkin" class="nav-item active">
+            <span class="nav-icon" aria-hidden="true">+</span>
+            <span>今日登錄</span>
+          </a>
+          <a href="#leaderboard" class="nav-item">
+            <span class="nav-icon" aria-hidden="true">#</span>
+            <span>排行榜</span>
+          </a>
+          <a href="#feed" class="nav-item">
+            <span class="nav-icon" aria-hidden="true">•</span>
+            <span>動態</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-summary">
+          <span>本週目標</span>
+          <strong id="groupGoalText">0 / 1,200 分鐘</strong>
+          <div class="progress-track" aria-hidden="true">
+            <div id="goalProgress" class="progress-fill"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <h1>CuteClub 運動排行榜</h1>
+            <p id="todayLabel">今日</p>
+          </div>
+          <div class="topbar-actions">
+            <label class="select-label" for="memberSelect">成員</label>
+            <select id="memberSelect"></select>
+            <button id="importBtn" class="text-button action-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              匯入
+            </button>
+            <button id="exportBtn" class="text-button action-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21V9" />
+                <path d="m7 14 5-5 5 5" />
+                <path d="M5 3h14" />
+              </svg>
+              匯出
+            </button>
+            <input id="importFile" class="hidden-file" type="file" accept="text/csv,.csv" />
+            <button id="resetBtn" class="icon-button ghost" type="button" title="還原範例">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7v5h5" />
+                <path d="M5.2 12A7.2 7.2 0 1 0 7.4 6.8L4 10.2" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="hero-strip" aria-label="CuteClub 群組摘要">
+          <img class="hero-banner" src="assets/cuteclub-banner.png" alt="CuteClub Unleash Your Cute Power 橫幅" />
+          <div class="hero-panel">
+            <h2>釋放你的可愛力量！</h2>
+            <p>登錄每日運動時間，把跑步、騎車、瑜伽和健身變成朋友間看得見的鼓勵。</p>
+            <div class="hero-actions">
+              <a href="#checkin" class="hero-link">立即登錄</a>
+              <a href="#leaderboard" class="hero-link secondary">查看排行</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="stat-grid" aria-label="群組統計">
+          <article class="stat-panel">
+            <span>今日總分鐘</span>
+            <strong id="todayMinutes">0</strong>
+          </article>
+          <article class="stat-panel accent-teal">
+            <span>本週總分鐘</span>
+            <strong id="weekMinutes">0</strong>
+          </article>
+          <article class="stat-panel accent-coral">
+            <span>已打卡成員</span>
+            <strong id="checkedInCount">0</strong>
+          </article>
+          <article class="stat-panel accent-gold">
+            <span>最長連續</span>
+            <strong id="bestStreak">0 天</strong>
+          </article>
+        </section>
+
+        <div class="workspace-grid">
+          <section id="checkin" class="panel checkin-panel">
+            <div class="section-heading">
+              <h2>每日登錄</h2>
+              <span id="editingState">今天尚未登錄</span>
+            </div>
+
+            <form id="entryForm" class="entry-form">
+              <div class="member-display full">
+                <label for="entryMemberSelect">登錄人</label>
+                <select id="entryMemberSelect"></select>
+              </div>
+              <div class="field-row">
+                <label for="entryDate">日期</label>
+                <input id="entryDate" name="entryDate" type="date" required />
+              </div>
+              <div class="field-row">
+                <label for="activityType">項目</label>
+                <select id="activityType" name="activityType">
+                  <option value="跑步">跑步</option>
+                  <option value="健身">健身</option>
+                  <option value="瑜伽">瑜伽</option>
+                  <option value="走路">走路</option>
+                  <option value="騎車">騎車</option>
+                  <option value="球類">球類</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="minutes">分鐘</label>
+                <input id="minutes" name="minutes" type="number" min="1" max="1440" step="1" value="30" required />
+              </div>
+              <div class="field-row">
+                <label for="intensity">強度</label>
+                <select id="intensity" name="intensity">
+                  <option value="輕鬆">輕鬆</option>
+                  <option value="中等" selected>中等</option>
+                  <option value="高強度">高強度</option>
+                </select>
+              </div>
+              <div class="field-row full">
+                <label for="note">備註</label>
+                <input id="note" name="note" type="text" maxlength="32" placeholder="今天的狀態" />
+              </div>
+              <button class="primary-button" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                儲存紀錄
+              </button>
+            </form>
+          </section>
+
+          <section id="leaderboard" class="panel leaderboard-panel">
+            <div class="section-heading">
+              <h2>排行榜</h2>
+              <div class="segmented" role="tablist" aria-label="榜單類型">
+                <button type="button" class="segment active" data-board="week">週榜</button>
+                <button type="button" class="segment" data-board="today">今日</button>
+                <button type="button" class="segment" data-board="month">月榜</button>
+                <button type="button" class="segment" data-board="streak">連續</button>
+              </div>
+            </div>
+            <div id="leaderboardList" class="leaderboard-list"></div>
+          </section>
+        </div>
+
+        <section id="feed" class="panel feed-panel">
+          <div class="section-heading">
+            <h2>群組動態</h2>
+            <button id="clearLikesBtn" class="text-button" type="button">清除互動</button>
+          </div>
+          <div id="feedList" class="feed-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
