@@ -51,6 +51,7 @@ const els = {
   entryMemberSelect: document.querySelector("#entryMemberSelect"),
   importBtn: document.querySelector("#importBtn"),
   exportBtn: document.querySelector("#exportBtn"),
+  syncBtn: document.querySelector("#syncBtn"),
   importFile: document.querySelector("#importFile"),
   resetBtn: document.querySelector("#resetBtn"),
   entryForm: document.querySelector("#entryForm"),
@@ -158,6 +159,11 @@ function bindEvents() {
 
   els.exportBtn.addEventListener("click", exportData);
 
+  els.syncBtn.addEventListener("click", async () => {
+    const reloaded = await loadRemoteState({ silent: false });
+    if (reloaded) showToast("已同步最新線上資料");
+  });
+
   els.importBtn.addEventListener("click", () => {
     els.importFile.click();
   });
@@ -176,11 +182,15 @@ function bindEvents() {
       els.entryMemberSelect.value = state.currentMemberId;
       els.entryDate.value = latestEntryDate(state.entries) || formatDate(new Date());
       saveState();
-      await flushRemoteSave();
+      const synced = await flushRemoteSave();
       syncFormWithEntry();
       setActiveBoard("month");
       render();
-      showToast(`已清空舊資料，匯入 ${state.entries.length} 筆 CSV 紀錄`);
+      showToast(
+        synced
+          ? `已匯入並同步 ${state.entries.length} 筆 CSV 紀錄`
+          : `已匯入 ${state.entries.length} 筆，線上同步失敗`,
+      );
     } catch (error) {
       showToast("匯入失敗，請確認 CSV 格式");
     } finally {
@@ -663,12 +673,14 @@ function queueRemoteSave() {
 }
 
 async function flushRemoteSave() {
-  if (!hasRemoteConfig()) return;
+  if (!hasRemoteConfig()) return false;
   window.clearTimeout(syncTimer);
   try {
     await saveRemoteState();
+    return true;
   } catch (error) {
     warnRemoteSync(error);
+    return false;
   }
 }
 
