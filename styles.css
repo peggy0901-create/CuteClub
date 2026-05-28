@@ -775,6 +775,41 @@ input:focus {
   font-weight: 700;
 }
 
+.feed-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.edit-entry-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.edit-entry-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edit-entry-btn:hover {
+  background: var(--mint);
+  box-shadow: 0 8px 12px rgba(24, 169, 153, 0.16);
+}
+
 .feed-main {
   margin: 8px 0 12px;
   line-height: 1.55;

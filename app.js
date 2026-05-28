@@ -43,6 +43,7 @@ let currentBoard = "week";
 let toastTimer;
 let syncTimer;
 let syncWarningTimer = 0;
+let editingEntryId = null;
 
 const els = {
   memberSelect: document.querySelector("#memberSelect"),
@@ -51,7 +52,6 @@ const els = {
   exportBtn: document.querySelector("#exportBtn"),
   importFile: document.querySelector("#importFile"),
   resetBtn: document.querySelector("#resetBtn"),
-  clearLikesBtn: document.querySelector("#clearLikesBtn"),
   entryForm: document.querySelector("#entryForm"),
   entryDate: document.querySelector("#entryDate"),
   activityType: document.querySelector("#activityType"),
@@ -117,13 +117,30 @@ function bindEvents() {
     const existingIndex = state.entries.findIndex(
       (item) => item.memberId === entry.memberId && item.date === entry.date,
     );
+    const editingIndex = editingEntryId
+      ? state.entries.findIndex((item) => item.id === editingEntryId)
+      : -1;
 
-    if (existingIndex >= 0) {
+    if (editingIndex >= 0) {
+      entry.reactions = state.entries[editingIndex].reactions || {};
+      state.entries[editingIndex] = entry;
+
+      if (existingIndex >= 0 && existingIndex !== editingIndex) {
+        entry.reactions = state.entries[existingIndex].reactions || entry.reactions;
+        state.entries[existingIndex] = entry;
+        state.entries.splice(editingIndex, 1);
+      }
+
+      editingEntryId = entry.id;
+      showToast("已更新既有紀錄");
+    } else if (existingIndex >= 0) {
       entry.reactions = state.entries[existingIndex].reactions || {};
       state.entries[existingIndex] = entry;
+      editingEntryId = entry.id;
       showToast("已更新今日紀錄");
     } else {
       state.entries.push(entry);
+      editingEntryId = entry.id;
       showToast("已新增運動紀錄");
     }
 
@@ -173,6 +190,12 @@ function bindEvents() {
   });
 
   els.feedList.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-entry]");
+    if (editButton) {
+      editEntry(editButton.dataset.editEntry);
+      return;
+    }
+
     const button = event.target.closest("[data-reaction]");
     if (!button) return;
 
@@ -201,15 +224,6 @@ function bindEvents() {
     if (reloaded) showToast("已重新載入線上資料");
   });
 
-  els.clearLikesBtn.addEventListener("click", () => {
-    state.entries.forEach((entry) => {
-      entry.reactions = {};
-    });
-    saveState();
-    flushRemoteSave();
-    renderFeed();
-    showToast("已清除互動");
-  });
 }
 
 function hydrateMemberSelect() {
@@ -294,7 +308,15 @@ function renderFeed() {
           <div class="feed-content">
             <div class="feed-meta">
               <strong>${member.name}</strong>
-              <span>${shortDate(entry.date)}</span>
+              <div class="feed-actions">
+                <span>${shortDate(entry.date)}</span>
+                <button class="edit-entry-btn" type="button" data-edit-entry="${entry.id}" aria-label="編輯 ${member.name} ${shortDate(entry.date)} 紀錄" title="編輯紀錄">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
+                    <path d="m13.5 7.5 3 3" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <p class="feed-main">
               完成 <b>${entry.minutes} 分鐘</b> ${entry.type}，${entry.intensity}。${note}
@@ -333,6 +355,7 @@ function syncFormWithEntry() {
   );
 
   if (entry) {
+    editingEntryId = entry.id;
     els.activityType.value = entry.type;
     els.minutes.value = entry.minutes;
     els.intensity.value = entry.intensity;
@@ -343,14 +366,31 @@ function syncFormWithEntry() {
     els.minutes.value = 30;
     els.intensity.value = "中等";
     els.note.value = "";
+    editingEntryId = null;
     els.editingState.textContent = "今天尚未登錄";
   }
+}
+
+function editEntry(entryId) {
+  const entry = state.entries.find((item) => item.id === entryId);
+  if (!entry) return;
+
+  editingEntryId = entry.id;
+  state.currentMemberId = entry.memberId;
+  els.entryDate.value = entry.date;
+  saveState({ remote: false });
+  syncFormWithEntry();
+  render();
+  document.querySelector("#checkin")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.location.hash = "checkin";
+  els.minutes.focus();
+  showToast("已載入紀錄，可直接修改");
 }
 
 function setCurrentMember(memberId) {
   if (!members.some((member) => member.id === memberId)) return;
   state.currentMemberId = memberId;
-  saveState();
+  saveState({ remote: false });
   syncFormWithEntry();
   render();
 }
@@ -579,7 +619,6 @@ async function saveRemoteState() {
 
 function getSharedState() {
   return {
-    currentMemberId: state.currentMemberId,
     members,
     entries: state.entries,
   };
@@ -620,10 +659,7 @@ function normalizeSharedState(data) {
     .filter(Boolean);
 
   return {
-    currentMemberId:
-      coerceMemberId(data?.currentMemberId, validMemberIds, memberList) ||
-      state.currentMemberId ||
-      memberList[0].id,
+    currentMemberId: coerceMemberId(state.currentMemberId, validMemberIds, memberList) || memberList[0].id,
     members: memberList,
     entries,
   };
