@@ -44,6 +44,7 @@ let toastTimer;
 let syncTimer;
 let syncWarningTimer = 0;
 let editingEntryId = null;
+let activeDetailMemberId = null;
 
 const els = {
   memberSelect: document.querySelector("#memberSelect"),
@@ -68,6 +69,11 @@ const els = {
   goalProgress: document.querySelector("#goalProgress"),
   leaderboardList: document.querySelector("#leaderboardList"),
   feedList: document.querySelector("#feedList"),
+  memberModal: document.querySelector("#memberModal"),
+  memberModalTitle: document.querySelector("#memberModalTitle"),
+  memberModalSummary: document.querySelector("#memberModalSummary"),
+  memberModalList: document.querySelector("#memberModalList"),
+  closeMemberModal: document.querySelector("#closeMemberModal"),
   toast: document.querySelector("#toast"),
 };
 
@@ -189,10 +195,22 @@ function bindEvents() {
     });
   });
 
+  els.leaderboardList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-member-detail]");
+    if (!button) return;
+    openMemberDetail(button.dataset.memberDetail);
+  });
+
   els.feedList.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-entry]");
     if (editButton) {
       editEntry(editButton.dataset.editEntry);
+      return;
+    }
+
+    const detailButton = event.target.closest("[data-member-detail]");
+    if (detailButton) {
+      openMemberDetail(detailButton.dataset.memberDetail);
       return;
     }
 
@@ -224,6 +242,23 @@ function bindEvents() {
     if (reloaded) showToast("已重新載入線上資料");
   });
 
+  els.memberModal.addEventListener("click", (event) => {
+    if (event.target === els.memberModal) closeMemberDetail();
+  });
+
+  els.closeMemberModal.addEventListener("click", closeMemberDetail);
+
+  els.memberModalList.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-entry]");
+    if (!editButton) return;
+    closeMemberDetail();
+    editEntry(editButton.dataset.editEntry);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.memberModal.hidden) closeMemberDetail();
+  });
+
 }
 
 function hydrateMemberSelect() {
@@ -238,6 +273,7 @@ function render() {
   renderStats();
   renderLeaderboard();
   renderFeed();
+  if (activeDetailMemberId && !els.memberModal.hidden) renderMemberDetail(activeDetailMemberId);
 }
 
 function renderStats() {
@@ -271,7 +307,7 @@ function renderLeaderboard() {
           <div class="person-line">
             <div class="avatar" style="background:${member.color}">${initials(member.name)}</div>
             <div class="person-copy">
-              <strong>${member.name}</strong>
+              <button class="member-name-btn" type="button" data-member-detail="${member.id}">${member.name}</button>
               <span>${summary}</span>
             </div>
           </div>
@@ -307,7 +343,7 @@ function renderFeed() {
           <div class="avatar" style="background:${member.color}">${initials(member.name)}</div>
           <div class="feed-content">
             <div class="feed-meta">
-              <strong>${member.name}</strong>
+              <button class="member-name-btn" type="button" data-member-detail="${member.id}">${member.name}</button>
               <div class="feed-actions">
                 <span>${shortDate(entry.date)}</span>
                 <button class="edit-entry-btn" type="button" data-edit-entry="${entry.id}" aria-label="編輯 ${member.name} ${shortDate(entry.date)} 紀錄" title="編輯紀錄">
@@ -385,6 +421,85 @@ function editEntry(entryId) {
   window.location.hash = "checkin";
   els.minutes.focus();
   showToast("已載入紀錄，可直接修改");
+}
+
+function openMemberDetail(memberId) {
+  if (!members.some((member) => member.id === memberId)) return;
+  activeDetailMemberId = memberId;
+  renderMemberDetail(memberId);
+  els.memberModal.hidden = false;
+  document.body.classList.add("modal-open");
+  els.closeMemberModal.focus();
+}
+
+function closeMemberDetail() {
+  els.memberModal.hidden = true;
+  activeDetailMemberId = null;
+  document.body.classList.remove("modal-open");
+}
+
+function renderMemberDetail(memberId) {
+  const member = getMember(memberId);
+  const entries = getMemberEntries(memberId);
+  const totalMinutes = sumMinutes(entries);
+  const monthStart = `${formatDate(new Date()).slice(0, 8)}01`;
+  const monthMinutes = sumMinutes(entries.filter((entry) => isSameOrAfter(entry.date, monthStart)));
+  const latestEntry = entries[0];
+
+  els.memberModalTitle.textContent = member.name;
+  els.memberModalSummary.innerHTML = `
+    <article>
+      <span>總分鐘</span>
+      <strong>${totalMinutes}</strong>
+    </article>
+    <article>
+      <span>本月分鐘</span>
+      <strong>${monthMinutes}</strong>
+    </article>
+    <article>
+      <span>紀錄筆數</span>
+      <strong>${entries.length}</strong>
+    </article>
+    <article>
+      <span>連續天數</span>
+      <strong>${getStreak(memberId)}</strong>
+    </article>
+  `;
+
+  if (!entries.length) {
+    els.memberModalList.innerHTML = `<div class="empty-detail">尚無登錄紀錄</div>`;
+    return;
+  }
+
+  els.memberModalList.innerHTML = entries
+    .map((entry) => {
+      const note = entry.note ? `<span class="detail-note">「${escapeHtml(entry.note)}」</span>` : "";
+      const latestClass = latestEntry?.id === entry.id ? " latest" : "";
+      return `
+        <article class="member-detail-row${latestClass}">
+          <div>
+            <strong>${formatDisplayDate(new Date(`${entry.date}T00:00:00`))}</strong>
+            <span>${escapeHtml(entry.type)} · ${escapeHtml(entry.intensity)} ${note}</span>
+          </div>
+          <div class="detail-row-actions">
+            <b>${entry.minutes} 分鐘</b>
+            <button class="edit-entry-btn" type="button" data-edit-entry="${entry.id}" aria-label="編輯 ${member.name} ${entry.date} 紀錄" title="編輯紀錄">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
+                <path d="m13.5 7.5 3 3" />
+              </svg>
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function getMemberEntries(memberId) {
+  return state.entries
+    .filter((entry) => entry.memberId === memberId)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.minutes - a.minutes);
 }
 
 function setCurrentMember(memberId) {

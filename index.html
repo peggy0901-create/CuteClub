@@ -179,6 +179,25 @@
       </main>
     </div>
 
+    <div id="memberModal" class="member-modal" role="dialog" aria-modal="true" aria-labelledby="memberModalTitle" hidden>
+      <div class="member-modal-card">
+        <div class="member-modal-head">
+          <div>
+            <span class="modal-kicker">成員明細</span>
+            <h2 id="memberModalTitle">成員紀錄</h2>
+          </div>
+          <button id="closeMemberModal" class="icon-button ghost" type="button" aria-label="關閉明細">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        <div id="memberModalSummary" class="member-detail-summary"></div>
+        <div id="memberModalList" class="member-detail-list"></div>
+      </div>
+    </div>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="app.js"></script>
