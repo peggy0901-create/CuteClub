@@ -195,7 +195,7 @@ function bindEvents() {
     renderFeed();
   });
 
-  els.resetBtn.addEventListener("click", async () => {
+  els.resetBtn?.addEventListener("click", async () => {
     localStorage.removeItem(STORAGE_KEY);
     const reloaded = await loadRemoteState({ silent: false });
     if (reloaded) showToast("已重新載入線上資料");
