@@ -1,6 +1,10 @@
 const STORAGE_KEY = "moverank-state-v1";
 const GROUP_GOAL = 1200;
 const MAX_DAILY_MINUTES = 1440;
+const SUPABASE_URL = "https://irxaturxkrahouwsjzbe.supabase.co";
+const SUPABASE_KEY = "sb_publishable_xh73MVaLxZYOU-atalZsUg_h1Od5bgE";
+const SUPABASE_TABLE = "moverank_state";
+const SUPABASE_STATE_ID = "cuteclub-main";
 
 const DEFAULT_MEMBERS = [
   { id: "大秉", name: "大秉" },
@@ -34,9 +38,11 @@ const state = loadState();
 let members = normalizeMembers(DEFAULT_MEMBERS);
 state.members = members;
 sanitizeStateForMembers();
-saveState();
+saveState({ remote: false });
 let currentBoard = "week";
 let toastTimer;
+let syncTimer;
+let syncWarningTimer = 0;
 
 const els = {
   memberSelect: document.querySelector("#memberSelect"),
@@ -67,7 +73,7 @@ const els = {
 
 init();
 
-function init() {
+async function init() {
   hydrateMemberSelect();
   els.entryDate.value = formatDate(new Date());
   els.todayLabel.textContent = formatDisplayDate(new Date());
@@ -76,6 +82,12 @@ function init() {
   bindEvents();
   syncFormWithEntry();
   render();
+  await loadRemoteState({ silent: true });
+  window.addEventListener("focus", () => loadRemoteState({ silent: true }));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) loadRemoteState({ silent: true });
+  });
+  window.setInterval(() => loadRemoteState({ silent: true }), 60000);
 }
 
 function bindEvents() {
@@ -89,7 +101,7 @@ function bindEvents() {
 
   els.entryDate.addEventListener("change", syncFormWithEntry);
 
-  els.entryForm.addEventListener("submit", (event) => {
+  els.entryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const entry = {
       id: `${state.currentMemberId}-${els.entryDate.value}`,
@@ -116,6 +128,7 @@ function bindEvents() {
     }
 
     saveState();
+    await flushRemoteSave();
     syncFormWithEntry();
     render();
   });
@@ -140,6 +153,7 @@ function bindEvents() {
       els.entryMemberSelect.value = state.currentMemberId;
       els.entryDate.value = latestEntryDate(state.entries) || formatDate(new Date());
       saveState();
+      await flushRemoteSave();
       syncFormWithEntry();
       setActiveBoard("month");
       render();
@@ -177,19 +191,14 @@ function bindEvents() {
     }
 
     saveState();
+    flushRemoteSave();
     renderFeed();
   });
 
-  els.resetBtn.addEventListener("click", () => {
+  els.resetBtn.addEventListener("click", async () => {
     localStorage.removeItem(STORAGE_KEY);
-    members = normalizeMembers(DEFAULT_MEMBERS);
-    Object.assign(state, createSeedState());
-    hydrateMemberSelect();
-    els.memberSelect.value = state.currentMemberId;
-    els.entryMemberSelect.value = state.currentMemberId;
-    syncFormWithEntry();
-    render();
-    showToast("已還原範例資料");
+    const reloaded = await loadRemoteState({ silent: false });
+    if (reloaded) showToast("已重新載入線上資料");
   });
 
   els.clearLikesBtn.addEventListener("click", () => {
@@ -197,6 +206,7 @@ function bindEvents() {
       entry.reactions = {};
     });
     saveState();
+    flushRemoteSave();
     renderFeed();
     showToast("已清除互動");
   });
@@ -483,9 +493,147 @@ function sanitizeStateForMembers() {
     }));
 }
 
-function saveState() {
+function saveState(options = {}) {
   state.members = members;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (options.remote !== false) queueRemoteSave();
+}
+
+function queueRemoteSave() {
+  if (!hasRemoteConfig()) return false;
+  window.clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => {
+    flushRemoteSave();
+  }, 250);
+}
+
+async function flushRemoteSave() {
+  if (!hasRemoteConfig()) return;
+  window.clearTimeout(syncTimer);
+  try {
+    await saveRemoteState();
+  } catch (error) {
+    warnRemoteSync(error);
+  }
+}
+
+function hasRemoteConfig() {
+  return Boolean(SUPABASE_URL && SUPABASE_KEY);
+}
+
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+    ...extra,
+  };
+}
+
+async function loadRemoteState({ silent = false } = {}) {
+  if (!hasRemoteConfig()) return false;
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${encodeURIComponent(SUPABASE_STATE_ID)}&select=data&limit=1`,
+      { headers: supabaseHeaders() },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Load failed: ${response.status}`);
+    }
+
+    const [remoteRow] = await response.json();
+    if (!remoteRow?.data) {
+      await saveRemoteState();
+      return true;
+    }
+
+    applySharedState(remoteRow.data);
+    if (!silent) showToast("已載入線上資料");
+    return true;
+  } catch (error) {
+    warnRemoteSync(error);
+    if (!silent) showToast("線上同步失敗，先使用此裝置資料");
+    return false;
+  }
+}
+
+async function saveRemoteState() {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?on_conflict=id`, {
+    method: "POST",
+    headers: supabaseHeaders({
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    }),
+    body: JSON.stringify({
+      id: SUPABASE_STATE_ID,
+      data: getSharedState(),
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Save failed: ${response.status}`);
+  }
+}
+
+function getSharedState() {
+  return {
+    currentMemberId: state.currentMemberId,
+    members,
+    entries: state.entries,
+  };
+}
+
+function applySharedState(data) {
+  const sharedState = normalizeSharedState(data);
+  members = sharedState.members;
+  Object.assign(state, sharedState);
+  hydrateMemberSelect();
+  els.memberSelect.value = state.currentMemberId;
+  els.entryMemberSelect.value = state.currentMemberId;
+  els.entryDate.value = latestEntryDate(state.entries) || els.entryDate.value || formatDate(new Date());
+  saveState({ remote: false });
+  syncFormWithEntry();
+  render();
+}
+
+function normalizeSharedState(data) {
+  const memberList = normalizeMembers(DEFAULT_MEMBERS);
+  const validMemberIds = new Set(memberList.map((member) => member.id));
+  const entries = (Array.isArray(data?.entries) ? data.entries : [])
+    .map((entry, index) => {
+      const memberId = coerceMemberId(entry.memberId, validMemberIds, memberList);
+      if (!memberId) return null;
+      const date = normalizeDate(entry.date) || formatDate(new Date());
+      return {
+        id: entry.id || `${memberId}-${date}-${index}`,
+        memberId,
+        date,
+        type: String(entry.type || "其他").slice(0, 12),
+        minutes: clamp(Number(entry.minutes || 0), 1, MAX_DAILY_MINUTES),
+        intensity: String(entry.intensity || "中等").slice(0, 12),
+        note: String(entry.note || "").slice(0, 32),
+        reactions: normalizeReactions(entry.reactions, validMemberIds, memberList),
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    currentMemberId:
+      coerceMemberId(data?.currentMemberId, validMemberIds, memberList) ||
+      state.currentMemberId ||
+      memberList[0].id,
+    members: memberList,
+    entries,
+  };
+}
+
+function warnRemoteSync(error) {
+  console.warn("Supabase sync failed", error);
+  if (Date.now() - syncWarningTimer < 5000) return;
+  syncWarningTimer = Date.now();
+  showToast("線上同步失敗，已先存在此裝置");
 }
 
 function exportData() {
