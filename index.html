@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CuteClub 運動排行榜</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260528-sync2" />
   </head>
   <body>
     <div class="app-shell">
@@ -77,6 +77,7 @@
               </svg>
               同步
             </button>
+            <span id="syncStatus" class="sync-status">同步檢查中</span>
             <input id="importFile" class="hidden-file" type="file" accept="text/csv,.csv" />
           </div>
         </header>
@@ -209,6 +210,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260528-sync2"></script>
   </body>
 </html>

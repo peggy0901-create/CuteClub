@@ -52,6 +52,7 @@ const els = {
   importBtn: document.querySelector("#importBtn"),
   exportBtn: document.querySelector("#exportBtn"),
   syncBtn: document.querySelector("#syncBtn"),
+  syncStatus: document.querySelector("#syncStatus"),
   importFile: document.querySelector("#importFile"),
   resetBtn: document.querySelector("#resetBtn"),
   entryForm: document.querySelector("#entryForm"),
@@ -677,6 +678,7 @@ async function flushRemoteSave() {
   window.clearTimeout(syncTimer);
   try {
     await saveRemoteState();
+    setSyncStatus("已同步", "ok");
     return true;
   } catch (error) {
     warnRemoteSync(error);
@@ -713,10 +715,12 @@ async function loadRemoteState({ silent = false } = {}) {
     const [remoteRow] = await response.json();
     if (!remoteRow?.data) {
       await saveRemoteState();
+      setSyncStatus("已同步", "ok");
       return true;
     }
 
     applySharedState(remoteRow.data);
+    setSyncStatus("已同步", "ok");
     if (!silent) showToast("已載入線上資料");
     return true;
   } catch (error) {
@@ -794,9 +798,16 @@ function normalizeSharedState(data) {
 
 function warnRemoteSync(error) {
   console.warn("Supabase sync failed", error);
+  setSyncStatus("同步失敗", "error");
   if (Date.now() - syncWarningTimer < 5000) return;
   syncWarningTimer = Date.now();
   showToast("線上同步失敗，已先存在此裝置");
+}
+
+function setSyncStatus(message, status = "") {
+  if (!els.syncStatus) return;
+  els.syncStatus.textContent = message;
+  els.syncStatus.dataset.status = status;
 }
 
 function exportData() {

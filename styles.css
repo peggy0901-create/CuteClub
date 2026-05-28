@@ -730,6 +730,32 @@ input:focus {
   box-shadow: 0 8px 14px rgba(23, 58, 95, 0.08);
 }
 
+.sync-status {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(11, 45, 99, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.sync-status[data-status="ok"] {
+  border-color: rgba(24, 169, 153, 0.32);
+  background: var(--green-soft);
+  color: var(--teal-dark);
+}
+
+.sync-status[data-status="error"] {
+  border-color: rgba(255, 79, 138, 0.38);
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
 .feed-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
