@@ -5,6 +5,7 @@ const SUPABASE_URL = "https://irxaturxkrahouwsjzbe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xh73MVaLxZYOU-atalZsUg_h1Od5bgE";
 const SUPABASE_TABLE = "moverank_state";
 const SUPABASE_STATE_ID = "cuteclub-main";
+const REMOTE_API_PATH = "/api/state";
 
 const DEFAULT_MEMBERS = [
   { id: "大秉", name: "大秉" },
@@ -703,16 +704,7 @@ async function loadRemoteState({ silent = false } = {}) {
   if (!hasRemoteConfig()) return false;
 
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${encodeURIComponent(SUPABASE_STATE_ID)}&select=data&limit=1`,
-      { headers: supabaseHeaders() },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Load failed: ${response.status}`);
-    }
-
-    const [remoteRow] = await response.json();
+    const remoteRow = await loadRemoteRow();
     if (!remoteRow?.data) {
       await saveRemoteState();
       setSyncStatus("已同步", "ok");
@@ -731,6 +723,21 @@ async function loadRemoteState({ silent = false } = {}) {
 }
 
 async function saveRemoteState() {
+  try {
+    const apiResponse = await fetch(REMOTE_API_PATH, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data: getSharedState() }),
+      cache: "no-store",
+    });
+
+    if (apiResponse.ok) return;
+  } catch {
+    // Local previews do not have the Vercel API route, so fall back to Supabase REST.
+  }
+
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?on_conflict=id`, {
     method: "POST",
     headers: supabaseHeaders({
@@ -746,6 +753,36 @@ async function saveRemoteState() {
   if (!response.ok) {
     throw new Error(`Save failed: ${response.status}`);
   }
+}
+
+async function loadRemoteRow() {
+  try {
+    const apiResponse = await fetch(`${REMOTE_API_PATH}?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+
+    if (apiResponse.ok) {
+      const payload = await apiResponse.json();
+      return payload?.data ? { data: payload.data } : null;
+    }
+  } catch {
+    // Local previews do not have the Vercel API route, so fall back to Supabase REST.
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${encodeURIComponent(SUPABASE_STATE_ID)}&select=data&limit=1`,
+    {
+      headers: supabaseHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Load failed: ${response.status}`);
+  }
+
+  const [remoteRow] = await response.json();
+  return remoteRow || null;
 }
 
 function getSharedState() {
