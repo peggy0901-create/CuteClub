@@ -808,7 +808,8 @@ input:focus {
   flex: 0 0 auto;
 }
 
-.edit-entry-btn {
+.edit-entry-btn,
+.delete-entry-btn {
   width: 30px;
   height: 30px;
   display: inline-flex;
@@ -821,7 +822,8 @@ input:focus {
   color: var(--text);
 }
 
-.edit-entry-btn svg {
+.edit-entry-btn svg,
+.delete-entry-btn svg {
   width: 16px;
   height: 16px;
   fill: none;
@@ -834,6 +836,15 @@ input:focus {
 .edit-entry-btn:hover {
   background: var(--green-soft);
   box-shadow: 0 8px 12px rgba(24, 169, 153, 0.16);
+}
+
+.delete-entry-btn {
+  color: var(--coral);
+}
+
+.delete-entry-btn:hover {
+  background: var(--coral-soft);
+  box-shadow: 0 8px 12px rgba(255, 79, 138, 0.16);
 }
 
 .member-name-btn {
@@ -874,6 +885,7 @@ input:focus {
   width: min(720px, 100%);
   max-height: min(760px, calc(100vh - 36px));
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 16px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -931,9 +943,11 @@ input:focus {
 }
 
 .member-detail-list {
+  min-height: 0;
   display: grid;
   gap: 8px;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 0 18px 18px;
 }
 

@@ -214,6 +214,12 @@ function bindEvents() {
   });
 
   els.feedList.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-delete-entry]");
+    if (deleteButton) {
+      deleteEntry(deleteButton.dataset.deleteEntry);
+      return;
+    }
+
     const editButton = event.target.closest("[data-edit-entry]");
     if (editButton) {
       editEntry(editButton.dataset.editEntry);
@@ -261,6 +267,12 @@ function bindEvents() {
   els.closeMemberModal.addEventListener("click", closeMemberDetail);
 
   els.memberModalList.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-delete-entry]");
+    if (deleteButton) {
+      deleteEntry(deleteButton.dataset.deleteEntry);
+      return;
+    }
+
     const editButton = event.target.closest("[data-edit-entry]");
     if (!editButton) return;
     closeMemberDetail();
@@ -362,6 +374,15 @@ function renderFeed() {
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
                     <path d="m13.5 7.5 3 3" />
+                  </svg>
+                </button>
+                <button class="delete-entry-btn" type="button" data-delete-entry="${entry.id}" aria-label="刪除 ${member.name} ${shortDate(entry.date)} 紀錄" title="刪除紀錄">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                    <path d="m6 7 1 14h10l1-14" />
+                    <path d="M9 7V4h6v3" />
                   </svg>
                 </button>
               </div>
@@ -501,6 +522,15 @@ function renderMemberDetail(memberId) {
                 <path d="m13.5 7.5 3 3" />
               </svg>
             </button>
+            <button class="delete-entry-btn" type="button" data-delete-entry="${entry.id}" aria-label="刪除 ${member.name} ${entry.date} 紀錄" title="刪除紀錄">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+                <path d="m6 7 1 14h10l1-14" />
+                <path d="M9 7V4h6v3" />
+              </svg>
+            </button>
           </div>
         </article>
       `;
@@ -512,6 +542,22 @@ function getMemberEntries(memberId) {
   return state.entries
     .filter((entry) => entry.memberId === memberId)
     .sort((a, b) => b.date.localeCompare(a.date) || b.minutes - a.minutes);
+}
+
+async function deleteEntry(entryId) {
+  const entry = state.entries.find((item) => item.id === entryId);
+  if (!entry) return;
+
+  const member = getMember(entry.memberId);
+  if (!window.confirm(`確定刪除 ${member.name} ${entry.date} 的紀錄？`)) return;
+
+  state.entries = state.entries.filter((item) => item.id !== entryId);
+  if (editingEntryId === entryId) editingEntryId = null;
+  saveState();
+  const synced = await flushRemoteSave();
+  syncFormWithEntry();
+  render();
+  showToast(synced ? "已刪除紀錄並同步" : "已刪除紀錄，線上同步失敗");
 }
 
 function setCurrentMember(memberId) {
